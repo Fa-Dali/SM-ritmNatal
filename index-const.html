@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Круг Зодиака и Координаты планет</title>
+    <style>
+        #zodiacCanvas {
+            border: 1px solid black;
+            margin: 20px;
+        }
+
+        #controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        #outputTable {
+            margin-top: 20px;
+        }
+    </style>
+    <script src="data.js"></script> <!-- Подключаем данные с эфемеридами -->
+</head>
+
+<body>
+
+    <h1>Введите вашу дату рождения</h1>
+    <input type="date" id="birthday" /> <!-- Поле для ввода даты рождения -->
+    <button id="getCoordinates">Получить координаты планет</button> <!-- Кнопка для получения данных -->
+
+    <h2>Координаты планет:</h2>
+    <table id="outputTable" style="display:none;"> <!-- Таблица для вывода данных, изначально скрыта -->
+        <thead>
+            <tr>
+                <th>Знак зодиака</th>
+                <th>Планета</th>
+                <th>Угол</th>
+            </tr>
+        </thead>
+        <tbody id="outputBody"> <!-- Тело таблицы -->
+        </tbody>
+    </table>
+
+    <h2>Цепочки диспозиторов:</h2>
+    <div id="dispositorChains" style="display:none;"></div> <!-- Блок для отображения цепочек диспозиторов -->
+
+    <h1>Круг Зодиака</h1>
+    <canvas id="zodiacCanvas" width="400" height="400"></canvas>
+    <div id="controls">
+        <input type="date" id="birthDate" />
+        <button id="rotate">Вращать стрелку</button>
+        <button id="stop">Стоп</button>
+        <button id="setSpeed">Скорость вращения</button>
+        <button id="close">Закрыть программу</button>
+    </div>
+
+    <audio id="metronomeSound" src="metronome.mp3" preload="auto"></audio>
+
+    <script>
+        // Код по обработке планет
+        function getZodiacSign(degree) {
+            const signNames = [
+                "♈️", "♉️", "♊️", "♋️", "♌️", "♍️",
+                "♎️", "♏️", "♐️", "♑️", "♒️", "♓️"
+            ];
+            const index = Math.floor(degree / 30);
+            return signNames[index % 12];
+        }
+
+        const dispositorMap = {
+            '♈️': 'Марс',
+            '♉️': 'Венера',
+            '♊️': 'Меркурий',
+            '♋️': 'Луна',
+            '♌️': 'Солнце',
+            '♍️': 'Меркурий',
+            '♎️': 'Венера',
+            '♏️': 'Плутон',
+            '♐️': 'Юпитер',
+            '♑️': 'Сатурн',
+            '♒️': 'Уран',
+            '♓️': 'Нептун',
+        };
+
+        const planetNames = {
+            'sun': 'Солнце',
+            'moon': 'Луна',
+            'mercury': 'Меркурий',
+            'venus': 'Венера',
+            'mars': 'Марс',
+            'jupiter': 'Юпитер',
+            'saturn': 'Сатурн',
+            'uranus': 'Уран',
+            'neptune': 'Нептун',
+            'pluto': 'Плутон',
+        };
+
+        const planetDispositors = {};
+
+        function getDispositor(degree) {
+            const sign = getZodiacSign(degree);
+            return dispositorMap[sign];
+        }
+
+        document.getElementById('getCoordinates').addEventListener('click', function () {
+            const inputDate = document.getElementById('birthday').value;
+            if (!inputDate) {
+                alert('Пожалуйста, введите дату рождения!');
+                return;
+            }
+
+            const formattedDate = inputDate.split('-').reverse().join('.');
+            const planetData = data.find(entry => entry.date === formattedDate);
+            const outputBody = document.getElementById('outputBody');
+            const outputTable = document.getElementById('outputTable');
+            outputBody.innerHTML = '';
+
+            if (planetData) {
+                const planets = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto'];
+
+                planets.forEach(planet => {
+                    const degree = planetData[planet];
+                    const sign = getZodiacSign(degree);
+                    const dispositor = getDispositor(degree);
+                    planetDispositors[planet] = dispositor;
+
+                    const row = document.createElement('tr');
+                    row.innerHTML = `<td>${sign}</td><td>${planetNames[planet]}</td><td>${(degree || 0).toFixed(2)}</td>`;
+                    outputBody.appendChild(row);
+                });
+
+                outputTable.style.display = 'table';
+                const chains = calculateDispositorChains(planetData);
+                displayChains(chains);
+                updateZodiacCircle(planetData); // Обновить круг зодиака
+            } else {
+                outputBody.innerHTML = `<tr><td colspan="3">Нет данных для указанной даты.</td></tr>`;
+                outputTable.style.display = 'table';
+            }
+        });
+
+        // Цепочки диспозиторов
+        function calculateDispositorChains(planetData) {
+            const chains = {};
+            const planets = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto'];
+
+            planets.forEach(planet => {
+                const degree = planetData[planet];
+                const dispositor = getDispositor(degree);
+
+                if (!dispositor) {
+                    return;
+                }
+
+                const chain = [dispositor];
+                chains[planet] = chain;
+            });
+
+            return chains;
+        }
+
+        function displayChains(chains) {
+            const dispositorDiv = document.getElementById('dispositorChains');
+            dispositorDiv.style.display = 'block';
+            dispositorDiv.innerHTML = '';
+
+            for (const planet in chains) {
+                const chain = chains[planet].join(' → ');
+                dispositorDiv.innerHTML += `<strong>${planetNames[planet]} → </strong> ${chain} <br>`;
+            }
+        }
+
+        // Код по рисованию круга зодиака
+        const canvas = document.getElementById('zodiacCanvas');
+        const ctx = canvas.getContext('2d');
+        const metronomeSound = document.getElementById('metronomeSound');
+
+        let angle = 0;
+        let rotationSpeed = 0.1;
+        let rotating = false;
+        let planetPositions = {};
+
+        // Переменные для хранения предыдущего угла и истории углов
+        let previousAngle = 0;
+        let angleHistory = [];
+
+        function drawZodiacCircle() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.beginPath();
+            ctx.arc(200, 200, 150, 0, 2 * Math.PI);
+            ctx.stroke();
+
+            for (let i = 0; i < 12; i++) {
+                const angleRad = (i * 30) * (Math.PI / 180);
+                const x = 200 + 130 * Math.cos(angleRad);
+                const y = 200 + 130 * Math.sin(angleRad);
+                ctx.fillText(i + 1, x - 5, y + 5);
+            }
+
+            drawPlanetPositions();
+        }
+
+        function drawPlanetPositions() {
+            for (const [planet, coordinate] of Object.entries(planetPositions)) {
+                const angleRad = (coordinate * Math.PI) / 180;
+                const x = 200 + 150 * Math.cos(angleRad);
+                const y = 200 + 150 * Math.sin(angleRad);
+                ctx.beginPath();
+                ctx.arc(x, y, 3, 0, 2 * Math.PI);
+                ctx.fillStyle = "blue";
+                ctx.fill();
+            }
+        }
+
+        function updateZodiacCircle(planetData) {
+            planetPositions = {
+                "Солнце": planetData.sun,
+                "Луна": planetData.moon,
+                "Меркурий": planetData.mercury,
+                "Венера": planetData.venus,
+                "Марс": planetData.mars,
+                "Юпитер": planetData.jupiter,
+                "Сатурн": planetData.saturn,
+                "Уран": planetData.uranus,
+                "Нептун": planetData.neptune,
+                "Плутон": planetData.pluto
+            };
+            drawZodiacCircle();
+        }
+
+        function startRotation() {
+            rotating = true;
+            requestAnimationFrame(rotateArrow);
+        }
+
+        function stopRotation() {
+            rotating = false;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawZodiacCircle();
+            angleHistory = []; // Сбрасываем историю углов при остановке
+        }
+
+        function rotateArrow() {
+            if (rotating) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                drawZodiacCircle();
+
+                const angleRad = angle * (Math.PI / 180);
+                const x1 = 200 + 100 * Math.cos(angleRad);
+                const y1 = 200 + 100 * Math.sin(angleRad);
+                const x2 = 200 + 130 * Math.cos(angleRad);
+                const y2 = 200 + 130 * Math.sin(angleRad);
+
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.strokeStyle = "red";
+                ctx.stroke();
+
+                const currentAngleNormalized = angle % 360; // Нормализуем текущий угол
+
+                // Проверка на пересечение углов с координатами планет
+                for (const [planet, coordinate] of Object.entries(planetPositions)) {
+                    const normalizedCoordinate = coordinate % 360; // Нормализуем координату
+
+                    // Проверяем, проходит ли стрела мимо координаты планеты
+                    if (
+                        (previousAngle < normalizedCoordinate && currentAngleNormalized >= normalizedCoordinate) ||
+                        (previousAngle > normalizedCoordinate && currentAngleNormalized <= normalizedCoordinate)
+                    ) {
+                        metronomeSound.play(); // Проигрываем звук метронома
+                    }
+                }
+
+                if (currentAngleNormalized < previousAngle) {
+                    // Если мы прошли через 0 углов, сбрасываем историю углов
+                    angleHistory = [];  // Сбрасываем историю углов, чтобы начать заново с нового круга
+                }
+
+                previousAngle = currentAngleNormalized; // Обновляем предыдущий угол
+                angle += rotationSpeed; // Увеличиваем угол на скорость вращения
+                angle %= 360; // Нормализуем угол
+
+                requestAnimationFrame(rotateArrow);
+            }
+        }
+
+        document.getElementById('rotate').addEventListener('click', startRotation);
+        document.getElementById('stop').addEventListener('click', stopRotation);
+        document.getElementById('setSpeed').addEventListener('click', function () {
+            const inputSpeed = prompt("Введите скорость вращения (градусы за такт):", rotationSpeed);
+            if (inputSpeed) {
+                rotationSpeed = parseFloat(inputSpeed);
+            }
+        });
+        document.getElementById('close').addEventListener('click', function () {
+            window.close();
+        });
+
+        // Загрузка эфемерид при инициализации
+        loadEphemeris();
+        drawZodiacCircle();
+
+    </script>
+</body>
+
+</html>
